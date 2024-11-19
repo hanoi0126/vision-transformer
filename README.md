@@ -11,5 +11,5 @@ cd vision-transformer
 
 ```
 docker build -t vit:v1.0 .
-docker run -it --gpus all -v $PWD:workspace vit:v1.0 /bin/bash
+docker run -it --gpus all -v $PWD:/workspace vit:v1.0 /bin/bash
 ```
