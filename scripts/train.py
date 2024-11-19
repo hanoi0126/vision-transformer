@@ -1,10 +1,13 @@
 import hydra
 import torch
 from config import TrainConfig
-from data import prepare_data
+from dataset import prepare_data
+from libs.utils import save_checkpoint, save_experiment
+from model import ViTForClassfication
+from omegaconf import OmegaConf
 from torch import nn, optim
-from utils import save_checkpoint, save_experiment
-from vit import ViTForClassfication
+
+import wandb
 
 
 class Trainer:
@@ -29,7 +32,19 @@ class Trainer:
             print(
                 f"Epoch: {i+1}, Train loss: {train_loss:.4f}, Test loss: {test_loss:.4f}, Accuracy: {accuracy:.4f}"
             )
-            if (save_model_every_n_epochs > 0 and (i + 1) % save_model_every_n_epochs == 0 and i + 1 != epochs):
+            wandb.log(
+                {
+                    "epoch": i + 1,
+                    "train_loss": train_loss,
+                    "test_loss": test_loss,
+                    "accuracy": accuracy,
+                }
+            )
+            if (
+                save_model_every_n_epochs > 0
+                and (i + 1) % save_model_every_n_epochs == 0
+                and i + 1 != epochs
+            ):
                 print("\tSave checkpoint at epoch", i + 1)
                 save_checkpoint(self.exp_name, self.model, i + 1)
         save_experiment(
@@ -77,22 +92,29 @@ class Trainer:
         return accuracy, avg_loss
 
 
-@hydra.main(version_base=None, config_path="configs", config_name="train_config")
+@hydra.main(version_base=None, config_path="../configs", config_name="train_config")
 def main(config: TrainConfig) -> None:
-    # Training parameters
+    print(OmegaConf.to_yaml(config))
+    wandb.init(
+        project=config.project,
+        entity=config.entity,
+        name=config.datetime_dir,
+        config=OmegaConf.to_container(config, resolve=True),
+    )
     batch_size = config.batch_size
     epochs = config.epochs
     lr = config.lr
     device = config.device
     save_model_every_n_epochs = config.save_model_every
-    # Load the CIFAR10 dataset
+
     trainloader, testloader, _ = prepare_data(batch_size=batch_size)
-    # Create the model, optimizer, loss function and trainer
+
     model = ViTForClassfication(config)
     optimizer = optim.AdamW(model.parameters(), lr=lr, weight_decay=1e-2)
     loss_fn = nn.CrossEntropyLoss()
     trainer = Trainer(model, optimizer, loss_fn, config.exp_name, device=device)
     trainer.train(
+        config,
         trainloader,
         testloader,
         epochs,

@@ -7,8 +7,8 @@ import numpy as np
 import torch
 import torchvision
 import torchvision.transforms as transforms
+from model import ViTForClassfication
 from torch.nn import functional as F
-from vit import ViTForClassfication
 
 
 def save_experiment(
